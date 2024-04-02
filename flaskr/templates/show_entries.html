@@ -1,21 +1,55 @@
 {% extends "layout.html" %}
 {% block body %}
-  {% if session.logged_in %}
-    <form action="{{ url_for('add_entry') }}" method=post class=add-entry>
+<style>
+  .container {
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .entries,
+  .echo-response {
+    width: 48%;
+  }
+
+  .echo-response pre {
+    word-wrap: break-word;
+    /* Ensure long JSON strings wrap */
+    white-space: pre-wrap;
+  }
+</style>
+
+<div class="container">
+  <div class="entries">
+    {% if session.logged_in %}
+    <form action="{{ url_for('add_entry') }}" method="post" class="add-entry">
       <dl>
-        <dt>Title:
-        <dd><input type=text size=30 name=title>
-        <dt>Text:
-        <dd><textarea name=text rows=5 cols=40></textarea>
-        <dd><input type=submit value=Share>
+        <dt>Title:</dt>
+        <dd><input type="text" size="30" name="title"></dd>
+        <dt>Text:</dt>
+        <dd><textarea name="text" rows="5" cols="40"></textarea></dd>
+        <dd><input type="submit" value="Share"></dd>
       </dl>
     </form>
+    {% endif %}
+    <ul>
+      {% for entry in entries %}
+      <li>
+        <h2>{{ entry.title }}</h2>
+        {{ entry.text|safe }}
+        <br> <!-- Ensure the timestamp is on a new line -->
+        <small>Created at: {{ entry.created_at }}</small>
+      </li>
+      {% else %}
+      <li><em>Unbelievable. No entries here so far</em></li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  {% if echo_response %}
+  <div class="echo-response">
+    <h3>Postman Echo Response:</h3>
+    <pre>{{ echo_response | tojson | safe }}</pre>
+  </div>
   {% endif %}
-  <ul class=entries>
-  {% for entry in entries %}
-    <li><h2>{{ entry.title }}</h2>{{ entry.text|safe }}
-  {% else %}
-    <li><em>Unbelievable.  No entries here so far</em>
-  {% endfor %}
-  </ul>
+</div>
 {% endblock %}

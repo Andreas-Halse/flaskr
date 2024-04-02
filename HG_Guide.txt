@@ -1,0 +1,126 @@
+Step 1: Modify the Database Schema
+To store the creation timestamp for each todo, i need to modify the entries table schema in the database. 
+This involves adding a new column named created_at that will automatically be set to the current date and time whenever a new todo is created.
+
+Updated Schema
+The schema.sql file was updated with the following SQL commands:
+
+drop table if exists entries;
+create table entries (
+  id integer primary key autoincrement,
+  title text not null,
+  'text' text not null,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+The created_at column is of type TEXT and defaults to the current date and time, thanks to the SQLite function datetime('now').
+
+if you wanted to add this in the code instead it could be done this way:
+@app.route('/add', methods=['POST'])
+def add_entry():
+    if not session.get('logged_in'):
+        abort(401)
+    db = get_db()
+    # Get the current date and time
+    created_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    # Include created_at in the INSERT statement
+    db.execute('INSERT INTO entries (title, text, created_at) VALUES (?, ?, ?)',
+               [request.form['title'], request.form['text'], created_at])
+    db.commit()
+    flash('New entry was successfully posted')
+    return redirect(url_for('show_entries'))
+
+The code above ensures that the code handles adding the time to each entry, if the time is then not added by the code - the database will 
+try to add the code as a "backup"
+
+Why is this smart?
+What if you need specific dates for testing purposes or timezone or what ever you can think off- well then we have the 
+oppterunity to get in from the code and not just the database.
+
+i will now also show the timestamp:
+@app.route('/')
+def show_entries():
+    db = get_db()
+    # Include created_at in the SELECT statement to show the timpstamp
+    cur = db.execute('SELECT title, text, created_at FROM entries ORDER BY id DESC')
+    entries = cur.fetchall()
+    return render_template('show_entries.html', entries=entries)
+
+and the html tamplate:
+    <br> <!-- Ensure the timestamp is on a new line -->
+    <small>Created at: {{ entry.created_at }}</small>
+
+Also added BR to break the line - now time is shown.
+
+
+Step 2: Apply the Updated Schema
+With the updated schema in place, the next step is to initialize (or reinitialize) the database to reflect these changes. 
+This is done by executing the initdb command, which calls the init_db() function within the Flask application.
+
+flask initdb
+
+This command drops the existing entries table (if it exists) and creates a new one with the created_at column included, based on the updated schema.
+
+that concludes task 1.
+
+
+
+TASK 2:::::::::TASK 2:::::::::TASK 2:::::::::TASK 2:::::::::TASK 2:::::::::TASK 2:::::::::TASK 2:::::::::TASK 2:::::::::
+
+i added these 3 functions:
+
+# format_response function to convert the todos to a JSON response
+def format_response(todos):
+    # Convert the todos to a list of dictionaries for JSON response
+    todos_list = [dict(id=row['id'], title=row['title'], text=row['text'], created_at=row['created_at']) for row in todos]
+    return jsonify(todos_list)
+
+# Make a search function that takes a query string and returns the results
+def search_todos(query):
+    db = get_db()
+    query = f"%{query}%"  # Prepare the query for LIKE pattern matching
+    todos = db.execute('SELECT * FROM entries WHERE title LIKE ?', (query,)).fetchall()
+    return format_response(todos)
+
+# Adding the route for searching
+@app.route('/api/search')
+def search():
+    query_param = request.args.get('q', '')  # Default to empty string if not provided
+    return search_todos(query_param)
+
+What they do is add endpoint for search, do the actualt searching and finally format to json to return in the site.
+
+then i can call:
+http://127.0.0.1:5000/api/search?q=q
+
+and i will get returned with all todo's with the letter 'q' in the title.
+
+
+TASK 3:::::::::TASK 3:::::::::TASK 3:::::::::TASK 3:::::::::TASK 3:::::::::TASK 3:::::::::TASK 3:::::::::TASK 3:::::::::
+
+updated the add_entry to actually include the post to postman.
+This required using "verify=False" because otherwise i got a ssl error.
+
+@app.route('/add', methods=['POST'])
+def add_entry():
+    if not session.get('logged_in'):
+        abort(401)
+    db = get_db()
+    title = request.form['title']
+    text = request.form['text']
+    created_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # Get the current date and time as a string
+    # Execute the INSERT statement including created_at
+    db.execute('INSERT INTO entries (title, text, created_at) VALUES (?, ?, ?)',
+               [title, text, created_at])
+    db.commit()
+    flash('New entry was successfully posted')
+    # Prepare the todo data
+    todo_data = {
+        'title': title,
+        'text': text,
+        'created_at': created_at
+    }
+    # Send the HTTP POST request with the todo data as JSON
+    response = requests.post('https://postmanecho.com/post', json=todo_data, verify=False)
+    response.raise_for_status()
+    return redirect(url_for('show_entries'))
